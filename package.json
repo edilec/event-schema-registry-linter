@@ -1,17 +1,51 @@
 {
   "name": "event-schema-registry-linter",
-  "version": "0.0.0",
-  "description": "Lint event names, payload versions and compatibility rules in a small registry.",
+  "version": "0.1.0",
+  "description": "Lint event names, owners, versioned payload schemas and backward-compatibility rules in an event registry, and report producer/consumer breakage candidates.",
   "type": "module",
   "engines": {
     "node": ">=22"
   },
   "scripts": {
-    "test": "node --test"
+    "lint": "node --check src/index.mjs && node --check src/compare.mjs && node --check src/event.mjs && node --check src/registry.mjs && node --check src/text.mjs && node --check bin/event-schema-registry-linter.mjs && node --check test/acceptance.test.mjs && node --check test/cli.test.mjs && node --check test/compare.test.mjs && node --check test/config.test.mjs && node --check test/confinement.test.mjs && node --check test/event.test.mjs && node --check test/incomplete.test.mjs && node --check test/linter.test.mjs && node --check test/modes.test.mjs && node --check test/ordering.test.mjs && node --check test/registry.test.mjs && node --check test/sanitisation.test.mjs && node --check test/severity-behaviour.test.mjs && node --check test/severity-table.test.mjs && node --check test/text.test.mjs",
+    "test": "node --test",
+    "test:coverage": "node --test --experimental-test-coverage --test-coverage-include=src/**",
+    "example": "node bin/event-schema-registry-linter.mjs --registry examples/registry --config examples/linter.config.json",
+    "pack:check": "npm pack --dry-run",
+    "check": "npm run lint && npm test && npm run example && npm run pack:check"
   },
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/edilec/event-schema-registry-linter"
-  }
+    "url": "git+https://github.com/edilec/event-schema-registry-linter.git"
+  },
+  "bin": {
+    "event-schema-registry-linter": "./bin/event-schema-registry-linter.mjs"
+  },
+  "exports": {
+    ".": "./src/index.mjs"
+  },
+  "files": [
+    "bin",
+    "src",
+    "examples",
+    "docs",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "event-schema",
+    "schema-registry",
+    "compatibility",
+    "backward-compatibility",
+    "event-driven",
+    "contract-testing",
+    "cli"
+  ],
+  "author": "Edilec Private Limited",
+  "bugs": {
+    "url": "https://github.com/edilec/event-schema-registry-linter/issues"
+  },
+  "homepage": "https://github.com/edilec/event-schema-registry-linter#readme"
 }
