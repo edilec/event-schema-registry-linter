@@ -1,0 +1,12 @@
+{
+  "schemaVersion": "1",
+  "mode": "backward",
+  "owners": [
+    "team-billing",
+    "team-orders"
+  ],
+  "limits": {
+    "maxEvents": 100,
+    "maxVersions": 20
+  }
+}

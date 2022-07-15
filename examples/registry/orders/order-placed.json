@@ -1,0 +1,122 @@
+{
+  "name": "orders.order_placed",
+  "owner": "team-orders",
+  "description": "Emitted once a customer order has been accepted for fulfilment.",
+  "producers": [
+    "checkout-api"
+  ],
+  "consumers": [
+    "billing-worker",
+    "search-indexer"
+  ],
+  "versions": [
+    {
+      "version": 1,
+      "description": "First published contract.",
+      "schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "order_id",
+          "customer",
+          "total_minor",
+          "currency"
+        ],
+        "properties": {
+          "order_id": {
+            "type": "string",
+            "description": "Opaque order identifier."
+          },
+          "customer": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "customer_id"
+            ],
+            "properties": {
+              "customer_id": {
+                "type": "string"
+              },
+              "segment": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          },
+          "total_minor": {
+            "type": "integer",
+            "description": "Order total in the minor unit of the currency."
+          },
+          "currency": {
+            "type": "string",
+            "description": "ISO 4217 code."
+          },
+          "coupon_code": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "version": 2,
+      "description": "Adds the optional sales channel and clarifies two descriptions.",
+      "schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "order_id",
+          "customer",
+          "total_minor",
+          "currency"
+        ],
+        "properties": {
+          "order_id": {
+            "type": "string",
+            "description": "Opaque order identifier, unique for the lifetime of the order."
+          },
+          "customer": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "customer_id"
+            ],
+            "properties": {
+              "customer_id": {
+                "type": "string"
+              },
+              "segment": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          },
+          "total_minor": {
+            "type": "integer",
+            "description": "Order total in the minor unit of the currency, before refunds."
+          },
+          "currency": {
+            "type": "string",
+            "description": "ISO 4217 code."
+          },
+          "coupon_code": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "channel": {
+            "type": "string",
+            "description": "Sales channel the order arrived through."
+          }
+        }
+      }
+    }
+  ]
+}
