@@ -74,7 +74,7 @@ export function validateEventDocument(document, limits) {
   if (typeof document.name !== 'string' || document.name === '') {
     push('event-name-invalid', '/name', 'An event must declare a name.')
   } else if (document.name.length > EVENT_NAME_MAX_LENGTH) {
-    push('event-name-invalid', '/name', `An event name must be at most ${EVENT_NAME_MAX_LENGTH} characters long.`)
+    push('event-name-invalid', '/name', `An event name must be at most ${EVENT_NAME_MAX_LENGTH} characters long.`, document.name)
   } else if (!EVENT_NAME_PATTERN.test(document.name)) {
     push('event-name-invalid', '/name', `"${sanitize(document.name, 80)}" is not a valid event name; use lower-case domain.event_name, for example orders.order_placed.`, document.name)
   } else {

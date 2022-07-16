@@ -48,7 +48,7 @@ function relativeFile(root, absolute) {
 export async function readRegistry({ realRoot, limits, clock }) {
   const problems = []
   const documents = []
-  const state = { stopped: false, visitedDirectories: new Set(), deadline: clock() + limits.timeoutMs }
+  const state = { stopped: false, candidates: 0, visitedDirectories: new Set(), deadline: clock() + limits.timeoutMs }
 
   const push = (ruleId, file, message, extra = {}) => problems.push({ ruleId, file, message, ...extra })
 
@@ -67,7 +67,6 @@ export async function readRegistry({ realRoot, limits, clock }) {
   }
 
   async function walk(absolute, depth) {
-    if (outOfTime()) return
     if (depth > limits.maxDepth) {
       push(
         'directory-too-deep',
@@ -117,12 +116,18 @@ export async function readRegistry({ realRoot, limits, clock }) {
         if (state.visitedDirectories.has(realChild)) continue
         state.visitedDirectories.add(realChild)
         await walk(child, depth + 1)
+        if (outOfTime()) return
         continue
       }
 
       if (!info.isFile() || !name.endsWith('.json')) continue
-      if (outOfTime()) return
+      state.candidates += 1
       await readEventFile(child, info)
+      // The budget is checked after an entry rather than before it, so a walk
+      // always attempts at least one entry and a budget of 0 ms stops after the
+      // first. Guarding the size of any single entry is maxFileBytes' job, not
+      // the clock's.
+      if (outOfTime()) return
     }
   }
 
@@ -182,5 +187,5 @@ export async function readRegistry({ realRoot, limits, clock }) {
   await walk(realRoot, 0)
   documents.sort((left, right) => byCodeUnit(left.file, right.file))
   problems.sort((left, right) => byCodeUnit(left.file, right.file) || byCodeUnit(left.ruleId, right.ruleId))
-  return { documents, problems }
+  return { documents, problems, candidates: state.candidates }
 }

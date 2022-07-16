@@ -33,7 +33,7 @@ import { byCodeUnit, decodeUtf8, sanitize } from './text.mjs'
 export { CHANGE_KINDS, MODES, modeRefuses } from './compare.mjs'
 export { EVENT_KEYS, EVENT_NAME_PATTERN, VERSION_KEYS } from './event.mjs'
 export { isInside } from './registry.mjs'
-export { byCodeUnit, decodeUtf8, sanitize } from './text.mjs'
+export { CONTROL_CLASSES, byCodeUnit, decodeUtf8, escapePointerSegment, sanitize } from './text.mjs'
 
 export const TOOL_ID = 'event-schema-registry-linter'
 export const REPORT_SCHEMA_VERSION = '1'
@@ -350,7 +350,7 @@ export async function lintEventRegistry(options = {}) {
   }
   if (!info.isDirectory()) throw new TypeError('Registry must be a directory of event declaration files')
 
-  const { documents, problems } = await readRegistry({ realRoot, limits, clock })
+  const { documents, problems, candidates } = await readRegistry({ realRoot, limits, clock })
   const findings = problems.map((problem) => makeFinding(problem.ruleId, problem.message, { file: problem.file }))
 
   const seenNames = new Map()
@@ -396,10 +396,14 @@ export async function lintEventRegistry(options = {}) {
     versionPairs += result.pairs
   }
 
-  if (documents.length === 0) {
+  // A registry holding no declarations at all is not a registry that passed:
+  // "pass" with nothing checked is green on no evidence. Where files were found
+  // but could not be read, the read failures say so themselves and each one is
+  // already an incomplete rule, so this finding stays about an empty tree.
+  if (candidates === 0) {
     findings.push(makeFinding(
       'no-events-found',
-      'No event declaration files were read, so this run has no evidence to report. A registry that checks nothing is not a registry that passed.',
+      'No event declaration files were found under the registry root, so this run has no evidence to report.',
       { file: REGISTRY_ROOT },
     ))
   }
