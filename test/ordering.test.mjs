@@ -83,8 +83,10 @@ test('file paths reach the report in code-unit order', async (t) => {
 test('pointers within one file reach the report in code-unit order', async (t) => {
   // `a-b` and `a_b` are the pair a collator orders the other way round: it
   // weights the connector `_` (0x5F) below the dash `-` (0x2D); code units do
-  // the opposite. The production order comes from the property-key sort in the
-  // comparison, the report order from the pointer key of the finding sort.
+  // the opposite. Two sorts have to agree for this to hold: the path sort in
+  // compareSchemas, which decides the order changes are produced in, and the
+  // pointer key of the finding sort, which decides the order they are reported
+  // in. Reverse either and this flips.
   const schema = (description) => ({
     type: 'object',
     additionalProperties: false,

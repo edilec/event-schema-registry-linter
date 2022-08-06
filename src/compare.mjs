@@ -272,8 +272,12 @@ function visitForCollection(node, path, required, fields) {
     docs: docsOf(node),
   })
   if (isRecord(node.properties)) {
+    // Deliberately not sorted here. Ordering is established in exactly one
+    // place -- the path sort in `compareSchemas` below -- and a second sort
+    // that cannot change any output is a guarantee no test can defend and no
+    // reader can trust.
     const requiredNames = new Set(Array.isArray(node.required) ? node.required : [])
-    for (const name of Object.keys(node.properties).sort(byCodeUnit)) {
+    for (const name of Object.keys(node.properties)) {
       visitForCollection(node.properties[name], `${path}/properties/${escapePointerSegment(name)}`, requiredNames.has(name), fields)
     }
   }
@@ -287,8 +291,10 @@ function visitForCollection(node, path, required, fields) {
 /**
  * Compare two flattened schemas and describe every change between them.
  *
- * Changes are produced in code-unit order by path so that the list is stable
- * before it is sorted again into the report. A field that disappears takes its
+ * This is the one place the order of a comparison is decided: the union of both
+ * field maps is sorted by code unit, so nothing downstream depends on the order
+ * either schema happened to declare its properties in. A field that disappears
+ * takes its
  * subtree with it, and reporting one removal per descendant would bury the one
  * line a reviewer needs, so descendants of a removed or added path are folded
  * into the parent's finding.
