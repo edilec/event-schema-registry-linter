@@ -153,6 +153,43 @@ test('a change outside the active mode names the mode that would refuse it', asy
   assert.match(expansive.findings[0].message, /backward compatibility does not refuse it, forward or full would/)
 })
 
+test('the message reads as English in both directions and in both branches', async (t) => {
+  // The direction is interpolated after an article, so "a" is right for
+  // "restrictive" and wrong for "expansive". Both branches that name a
+  // direction are asserted in full, because this sentence is the line an
+  // operator quotes into a ticket.
+  const removed = await registry(t, ROWS[0])
+  const added = await registry(t, ROWS[6])
+
+  const refusedRestrictive = await lintEventRegistry({ registry: removed, mode: 'backward' })
+  assert.equal(
+    refusedRestrictive.findings[0].message,
+    'v1 -> v2: b was removed; the earlier version declared it string. '
+    + 'This is a restrictive change and backward compatibility refuses it.',
+  )
+
+  const refusedExpansive = await lintEventRegistry({ registry: added, mode: 'forward' })
+  assert.equal(
+    refusedExpansive.findings[0].message,
+    'v1 -> v2: b was added; the later version declares it string. '
+    + 'This is an expansive change and forward compatibility refuses it.',
+  )
+
+  const allowedRestrictive = await lintEventRegistry({ registry: removed, mode: 'forward' })
+  assert.equal(
+    allowedRestrictive.findings[0].message,
+    'v1 -> v2: b was removed; the earlier version declared it string. '
+    + 'This is a restrictive change; forward compatibility does not refuse it, backward or full would.',
+  )
+
+  const allowedExpansive = await lintEventRegistry({ registry: added, mode: 'backward' })
+  assert.equal(
+    allowedExpansive.findings[0].message,
+    'v1 -> v2: b was added; the later version declares it string. '
+    + 'This is an expansive change; backward compatibility does not refuse it, forward or full would.',
+  )
+})
+
 test('an event declaring its own compatibility overrides the run mode for that event', async (t) => {
   // A registry moving one event to a stricter contract should not have to move
   // the whole run, and the finding records which mode judged it.

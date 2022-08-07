@@ -280,6 +280,11 @@ function compatibilityFindings(event, file, mode) {
       const ruleId = !enforceable || refused ? change.kind : 'change-outside-mode'
       const where = describePath(change.path)
       const versions = `v${from.version} -> v${to.version}`
+      // The article belongs to the word it precedes: "a restrictive change",
+      // but "an expansive change". The direction is interpolated, so a single
+      // literal "a" reads as a template with a hole in it on every expansive
+      // finding, which is the half of the report an operator actually quotes.
+      const article = meta.direction === 'expansive' ? 'an' : 'a'
 
       let message
       if (!enforceable) {
@@ -287,9 +292,9 @@ function compatibilityFindings(event, file, mode) {
           ? `${versions}: ${where} changed only in documentation keywords (${change.evidence}), which breaks nothing in any mode.`
           : `${versions}: ${where} ${change.detail}, and an added optional field breaks nothing in any mode.`
       } else if (refused) {
-        message = `${versions}: ${where} ${change.detail}. This is a ${meta.direction} change and ${mode} compatibility refuses it.`
+        message = `${versions}: ${where} ${change.detail}. This is ${article} ${meta.direction} change and ${mode} compatibility refuses it.`
       } else {
-        message = `${versions}: ${where} ${change.detail}. This is a ${meta.direction} change; ${mode} compatibility does not refuse it, ${OTHER_MODE[meta.direction]} or full would.`
+        message = `${versions}: ${where} ${change.detail}. This is ${article} ${meta.direction} change; ${mode} compatibility does not refuse it, ${OTHER_MODE[meta.direction]} or full would.`
       }
 
       const extra = {
