@@ -100,6 +100,29 @@ test('a clock that never advances lets the whole walk finish', async (t) => {
   assert.equal(documents.length, 2)
 })
 
+test('a zero budget leaves no time at all, even for a clock that never advances', async (t) => {
+  // The budget is `clock() < deadline`, not `<=`. With timeoutMs 0 the deadline
+  // is the reading the walk started from, so a clock standing still has no time
+  // either -- which is what makes `--timeout-ms 0` provable from outside the
+  // process. Every other fixture here uses a clock that genuinely moved past
+  // the deadline, and those pass under `<=` as well.
+  const realRoot = await tree(t, { 'a.json': declaration('a.one'), 'b.json': declaration('b.two') })
+
+  const { documents, problems } = await read(realRoot, { timeoutMs: 0 })
+  assert.deepEqual(problems.map((problem) => problem.ruleId), ['time-budget-exceeded'])
+  assert.equal(documents.length, 1, 'the walk always attempts at least one entry')
+
+  const report = await lintEventRegistry({
+    registry: realRoot,
+    mode: 'backward',
+    limits: { timeoutMs: 0 },
+    clock: () => 0,
+  })
+  assert.equal(report.status, 'incomplete')
+  assert.equal(report.summary.unexamined, 1)
+  assert.deepEqual(report.findings.map((finding) => finding.ruleId), ['time-budget-exceeded'])
+})
+
 test('an undecodable or unparseable file is a problem, not a document', async (t) => {
   const realRoot = await tree(t, { 'bad-bytes.json': Buffer.from([0x7b, 0xff]), 'bad-json.json': '{' })
   const { documents, problems } = await read(realRoot)
