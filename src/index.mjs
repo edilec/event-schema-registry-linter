@@ -154,12 +154,23 @@ function isRecord(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
 }
 
-/** The documented sort key, exported so a test can pin each half of it. */
+/**
+ * The documented sort key, exported so a test can pin each half of it.
+ *
+ * `evidence` is the fifth key because the first four do not separate every row
+ * the report can carry. A pointer and a message are both bounded excerpts of an
+ * untrusted key, and two keys sharing a long prefix collapse to the same
+ * excerpt while their evidence -- bounded differently -- still differs. Without
+ * this key those two rows tie, and their order in the JSON report falls back to
+ * whichever upstream sort happened to insert them, which is an ordering no
+ * reader of this function can see and no test of it can pin.
+ */
 export function compareFindingRows(left, right) {
   return byCodeUnit(left.location.file, right.location.file)
     || byCodeUnit(left.location.pointer ?? '', right.location.pointer ?? '')
     || byCodeUnit(left.ruleId, right.ruleId)
     || byCodeUnit(left.message, right.message)
+    || byCodeUnit(left.evidence ?? '', right.evidence ?? '')
 }
 
 export function validateLimits(overrides = {}) {

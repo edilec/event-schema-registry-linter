@@ -145,16 +145,104 @@ test('directory entries are walked in code-unit order', async (t) => {
   )
 })
 
+test('the earlier file by code unit is the original and the later one is the duplicate', async (t) => {
+  // Which of two files declaring one event name is the original and which is
+  // the duplicate is decided by the order the documents were sorted into, and
+  // the wrong one being named is a report that sends a reviewer to the wrong
+  // file. `Ab.json` and `_b.json` disagree: code units put `A` (0x41) before
+  // `_` (0x5F), a collator sorts the underscore as punctuation and puts `_b`
+  // first.
+  const declared = (file) => [file, json(declaration('orders.order_placed', documentationPair))]
+  const root = await tree(t, Object.fromEntries([declared('Ab.json'), declared('_b.json')]))
+
+  const report = await lintEventRegistry({ registry: root, mode: 'none' })
+  const duplicates = report.findings.filter((finding) => finding.ruleId === 'event-name-duplicate')
+  assert.equal(duplicates.length, 1)
+  assert.equal(duplicates[0].location.file, '_b.json')
+  assert.equal(
+    duplicates[0].message,
+    'Event name "orders.order_placed" is already declared in Ab.json. '
+    + "Two declarations of one name make the registry's answer depend on which file a reader opened.",
+  )
+
+  const result = await runCli(['--registry', root, '--mode', 'none', '--json'])
+  assert.equal(result.code, 1)
+  const emitted = JSON.parse(result.stdout).findings.filter((finding) => finding.ruleId === 'event-name-duplicate')
+  assert.equal(emitted.length, 1)
+  assert.equal(emitted[0].location.file, '_b.json')
+})
+
+test('a schema truncated at maxFields reads the fields that come first by code unit', async (t) => {
+  // The field walk stops at the limit, so its order decides which fields were
+  // read at all -- not merely the order they are reported in. `Zb` and `a_b`
+  // disagree: code units put `Z` (0x5A) before `a` (0x61), a collator folds
+  // case and puts `a_b` first. With one field of budget, code-unit order reads
+  // the valid `Zb` and reports only the limit; collation order reads the
+  // malformed `a_b` instead and emits a schema-invalid finding with it.
+  const root = await tree(t, { 'events.json': json(declaration('d.e', [
+    {
+      version: 1,
+      schema: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['Zb'],
+        properties: { Zb: { type: 'string' }, a_b: { type: 'strung' } },
+      },
+    },
+  ])) })
+
+  const report = await lintEventRegistry({ registry: root, mode: 'full', limits: { maxFields: 1 } })
+  assert.deepEqual(report.findings.map((finding) => finding.ruleId), ['too-many-fields'])
+  assert.equal(report.findings[0].location.pointer, '/versions/0/schema')
+  assert.equal(report.status, 'incomplete')
+
+  const result = await runCli(['--registry', root, '--mode', 'full', '--max-fields', '1', '--json'])
+  assert.equal(result.code, 2)
+  assert.deepEqual(JSON.parse(result.stdout).findings.map((finding) => finding.ruleId), ['too-many-fields'])
+})
+
+test('two findings that differ only in evidence are ordered by it', async (t) => {
+  // Two unknown keys sharing a 60-character prefix produce the same pointer and
+  // the same message, because both are bounded excerpts of the key, while the
+  // evidence -- bounded at 80 -- still tells them apart. The fifth sort key is
+  // what decides their order; without it the report falls back to the order the
+  // document validator happened to walk the keys in. `Zb` and `a_b` disagree:
+  // code units put `Z` (0x5A) before `a` (0x61), a collator folds case and puts
+  // `a_b` first.
+  const prefix = 'x'.repeat(60)
+  const root = await tree(t, { 'events.json': json({
+    ...declaration('d.e', documentationPair),
+    [`${prefix}Zb`]: 1,
+    [`${prefix}a_b`]: 2,
+  }) })
+
+  const report = await lintEventRegistry({ registry: root, mode: 'full' })
+  const unknown = report.findings.filter((finding) => finding.ruleId === 'event-unknown-key')
+  assert.deepEqual(unknown.map((finding) => finding.evidence), [`${prefix}Zb`, `${prefix}a_b`])
+  assert.equal(unknown[0].location.pointer, unknown[1].location.pointer, 'the fixture no longer ties on pointer')
+  assert.equal(unknown[0].message, unknown[1].message, 'the fixture no longer ties on message')
+
+  const result = await runCli(['--registry', root, '--mode', 'full', '--json'])
+  assert.equal(result.code, 1)
+  assert.deepEqual(
+    JSON.parse(result.stdout).findings
+      .filter((finding) => finding.ruleId === 'event-unknown-key')
+      .map((finding) => finding.evidence),
+    [`${prefix}Zb`, `${prefix}a_b`],
+  )
+})
+
 test('every key of the finding order is compared by code unit', () => {
   // One pair per key, each spelled so that a collator disagrees with code
-  // units. Substituting a collator for any one of the four comparisons flips
+  // units. Substituting a collator for any one of the five comparisons flips
   // exactly one of these assertions.
   const row = (overrides) => ({
     location: { file: overrides.file ?? 'a.json', pointer: overrides.pointer ?? '/p' },
     ruleId: overrides.ruleId ?? 'r',
     message: overrides.message ?? 'm',
+    evidence: overrides.evidence ?? 'e',
   })
-  for (const key of ['file', 'pointer', 'ruleId', 'message']) {
+  for (const key of ['file', 'pointer', 'ruleId', 'message', 'evidence']) {
     const dash = row({ [key]: key === 'pointer' ? '/a-b' : 'a-b' })
     const underscore = row({ [key]: key === 'pointer' ? '/a_b' : 'a_b' })
     assert.equal(compareFindingRows(dash, underscore), -1, `${key} is not compared by code unit`)
@@ -163,11 +251,16 @@ test('every key of the finding order is compared by code unit', () => {
   assert.equal(compareFindingRows(row({}), row({})), 0)
 })
 
-test('a missing pointer sorts as an empty string rather than throwing', () => {
+test('a missing pointer or evidence sorts as an empty string rather than throwing', () => {
   const withPointer = { location: { file: 'a.json', pointer: '/x' }, ruleId: 'r', message: 'm' }
   const without = { location: { file: 'a.json' }, ruleId: 'r', message: 'm' }
   assert.equal(compareFindingRows(without, withPointer), -1)
   assert.equal(compareFindingRows(withPointer, without), 1)
+
+  const withEvidence = { location: { file: 'a.json' }, ruleId: 'r', message: 'm', evidence: 'e' }
+  assert.equal(compareFindingRows(without, withEvidence), -1)
+  assert.equal(compareFindingRows(withEvidence, without), 1)
+  assert.equal(compareFindingRows(without, without), 0)
 })
 
 test('the whole human report is byte-identical to the order written down here', async (t) => {
