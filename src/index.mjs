@@ -77,9 +77,13 @@ export const DEFAULT_LIMITS = Object.freeze({
  * This table is the source of truth. It is **not** the guard: three
  * declarations agreeing with each other -- the table, the documented catalog
  * and a map written out again in a test -- are satisfied by one coordinated
- * edit. `test/severity-behaviour.test.mjs` drives every rule below through the
- * real entry point and asserts the status, the printed severity word and the
- * process exit code, none of which an edit to a table can move.
+ * edit, and a fourth declaration in a test that drives the real entry point but
+ * compares what comes back against its own row is satisfied by the same edit.
+ * The guard is `test/severity-outcomes.test.mjs`, which drives every rule below
+ * through the real entry point and writes the outcome out as a literal at each
+ * assertion -- `'fail'`, `2`, `'ERROR'`, the exit code -- taking nothing from a
+ * table, a parameter or an import. An edit here has nothing there to agree
+ * with.
  */
 export const RULE_SEVERITY = Object.freeze({
   'additional-properties-relaxed': 'warning',

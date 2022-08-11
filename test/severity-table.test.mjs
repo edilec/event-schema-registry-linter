@@ -14,12 +14,16 @@ const projectDirectory = resolve(dirname(fileURLToPath(import.meta.url)), '..')
  * This is a **documentation** check, and it is deliberately labelled as one. It
  * cannot be the severity guard: a table in the source, a table in a document
  * and a map in a test are three declarations, and one coordinated edit satisfies
- * all three. `test/severity-behaviour.test.mjs` is the guard -- it drives every
- * rule through the real entry point and asserts an exit code.
+ * all three. `test/severity-outcomes.test.mjs` is the guard -- it drives every
+ * rule through the real entry point and asserts the status, the error count, the
+ * printed severity word and the exit code as literals, sharing no table with
+ * anything an edit to the source would touch.
  *
  * What this test is worth is the other failure: a rule added, renamed or
  * retired in the source and never written down, so the catalog a reader trusts
- * quietly stops describing the tool.
+ * quietly stops describing the tool. The last test below is the same check
+ * against the guard: a rule with no run behind it is a rule whose severity
+ * nobody watched happen.
  */
 
 const CATALOG = join(projectDirectory, 'docs', 'rule-catalog.md')
@@ -106,4 +110,18 @@ test('every rule id is stable kebab case', () => {
   for (const ruleId of Object.keys(RULE_SEVERITY)) {
     assert.match(ruleId, /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/)
   }
+})
+
+test('every rule in the table has an outcome test that drives it through the tool', async () => {
+  // Names only. What each of those tests asserts is written out inside it as a
+  // literal, and is deliberately not readable from here: a check that compared
+  // the guard's expectations against this table would make the guard a mirror
+  // of the table again, which is the defect the guard exists to close.
+  const text = await readFile(join(projectDirectory, 'test', 'severity-outcomes.test.mjs'), 'utf8')
+  const named = new Set()
+  for (const line of text.split(String.fromCharCode(10))) {
+    const match = /^test\('([a-z0-9-]+) /.exec(line)
+    if (match !== null) named.add(match[1])
+  }
+  assert.deepEqual([...named].sort(), Object.keys(RULE_SEVERITY).sort())
 })

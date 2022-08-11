@@ -126,14 +126,21 @@ test('a bounded-out limit is incomplete rather than a quietly shorter answer', a
 })
 
 test('every rule that marks a run incomplete is exercised by a real run somewhere', async () => {
-  // The list is a declaration; test/severity-behaviour.test.mjs drives each of
+  // The list is a declaration; test/severity-outcomes.test.mjs drives each of
   // these through the CLI and asserts exit 2. This asserts the two stay in
   // step, so a rule cannot be added to the list without a run that proves it.
+  // What those runs expect is written out inside them and is deliberately not
+  // read from here: this looks only for the run, never for its severity.
   const source = await import('node:fs/promises')
-    .then((fs) => fs.readFile(join(projectDirectory, 'test', 'severity-behaviour.test.mjs'), 'utf8'))
+    .then((fs) => fs.readFile(join(projectDirectory, 'test', 'severity-outcomes.test.mjs'), 'utf8'))
+  const blocks = source.split(`${String.fromCharCode(10)}test(`)
   for (const ruleId of INCOMPLETE_RULES) {
-    assert.ok(source.includes(`ruleId: '${ruleId}'`), `${ruleId} has no behavioural case`)
-    const block = source.slice(source.indexOf(`ruleId: '${ruleId}'`))
-    assert.match(block.slice(0, 200), /status: 'incomplete'[\s\S]*exit: 2/, `${ruleId} is not driven to incomplete/2`)
+    const block = blocks.find((candidate) => candidate.startsWith(`'${ruleId} `))
+    assert.ok(block !== undefined, `${ruleId} has no run of its own`)
+    assert.ok(
+      block.includes("assert.equal(report.status, 'incomplete')"),
+      `${ruleId} is not driven to an incomplete report`,
+    )
+    assert.match(block, /await exitCode\(.*\), 2\)/, `${ruleId} is not driven to exit 2`)
   }
 })

@@ -192,10 +192,12 @@ npm run example   # lint examples/registry with examples/linter.config.json
 ```
 
 Every guarantee stated above has a test that fails when the guarantee is removed. Severity is
-pinned by driving each rule through the real entry point and asserting the process exit code, not
-by comparing a table against a document; ordering is pinned with inputs whose code-unit order and
-collation order genuinely disagree; sanitising is pinned with each character class arriving through
-an identifier as well as an excerpt.
+pinned by driving each rule through the real entry point and reading the outcome back as a literal
+written at the assertion — the status, the error count, the printed severity word and the process
+exit code — never by comparing one table against another or against a row that built the fixture;
+ordering is pinned with inputs whose code-unit order and collation order genuinely disagree, at
+every comparison whose result can reach the report; sanitising is pinned with each character class
+arriving through an identifier as well as an excerpt.
 
 ## License
 

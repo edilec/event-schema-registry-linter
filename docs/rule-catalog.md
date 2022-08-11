@@ -7,9 +7,10 @@ interface: renaming or removing one is a breaking change and is recorded in the 
 The severity table in `src/index.mjs` is the source of truth for severity, and
 `test/severity-table.test.mjs` asserts this document against it in both directions. That test is a
 documentation check, **not** the severity guard: three declarations agreeing with each other are
-satisfied by one coordinated edit. The guard is `test/severity-behaviour.test.mjs`, which drives
-every rule below through the real entry point and asserts the status, the printed severity word and
-the process exit code.
+satisfied by one coordinated edit. The guard is `test/severity-outcomes.test.mjs`, which drives
+every rule below through the real entry point and asserts the status, the error count, the printed
+severity word and the process exit code -- each one written out as a literal at the assertion, so
+that editing this table and that table together has nothing there to agree with.
 
 ## The registry format
 
