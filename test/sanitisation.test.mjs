@@ -49,6 +49,24 @@ const EVERY_CODE_POINT = Object.values(CONTROL_CLASSES).flat()
 
 const json = (value) => JSON.stringify(value, null, 2)
 
+/** Every string anywhere in a parsed report, object keys included. */
+function* strings(value) {
+  if (typeof value === 'string') {
+    yield value
+    return
+  }
+  if (Array.isArray(value)) {
+    for (const entry of value) yield* strings(entry)
+    return
+  }
+  if (value !== null && typeof value === 'object') {
+    for (const [key, entry] of Object.entries(value)) {
+      yield key
+      yield* strings(entry)
+    }
+  }
+}
+
 async function tree(t, files) {
   const root = await mkdtemp(join(tmpdir(), 'event-registry-sanitise-'))
   t.after(() => rm(root, { recursive: true, force: true }))
@@ -116,9 +134,20 @@ for (const [label, codePoint] of Object.entries(CLASSES)) {
     const breakage = report.findings.find((finding) => finding.ruleId === 'required-field-removed').breakage
     assert.deepEqual(breakage.candidates, ['billing worker'])
 
-    // Nothing in the serialised report carries the character, anywhere.
+    // Nothing in the report carries the character, anywhere. The serialised
+    // text is only half of that claim and cannot be the whole of it:
+    // JSON.stringify escapes C0 unconditionally, so searching it for NUL, a
+    // line feed or ESC is false however badly the sanitiser is broken. What a
+    // consumer acts on is the parsed document, so every string in it -- values
+    // and keys alike -- is searched as well, and that half fails for all eleven
+    // classes.
     const serialised = JSON.stringify(report)
     assert.equal(serialised.includes(hostile), false, `${label} survived into the JSON report`)
+    const parsed = [...strings(JSON.parse(serialised))]
+    assert.ok(parsed.length > report.findings.length, 'the walk over the parsed report found almost nothing')
+    for (const value of parsed) {
+      assert.equal(value.includes(hostile), false, `${label} survived into the parsed JSON report`)
+    }
 
     // Nor does any line of the human report. The line count is the other half
     // of the same assertion and the one that matters for the line feed, whose
