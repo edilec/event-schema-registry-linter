@@ -75,15 +75,6 @@ test('the summary counts agree with the findings that produced them', async (t) 
   assert.equal(report.summary.unexamined, 0)
 })
 
-test('every finding takes its severity from the frozen table', async (t) => {
-  const root = await tree(t, { 'a.json': BREAKING })
-  const report = await lintEventRegistry({ registry: root, mode: 'backward' })
-  assert.equal(report.findings.length > 0, true)
-  for (const finding of report.findings) {
-    assert.equal(finding.severity, RULE_SEVERITY[finding.ruleId], `${finding.ruleId} carries a severity of its own`)
-  }
-})
-
 test('a breakage candidate names the declared side and counts once', async (t) => {
   const root = await tree(t, { 'a.json': BREAKING })
   const report = await lintEventRegistry({ registry: root, mode: 'backward' })
@@ -111,15 +102,21 @@ test('a finding location is relative and its pointer is optional', async (t) => 
   assert.equal(Object.hasOwn(empty.findings[0].location, 'pointer'), false)
 })
 
-test('an unknown rule id cannot produce a finding', async (t) => {
-  // Severity comes from one table and nowhere else, so a rule added without a
-  // severity throws at construction rather than emitting an undefined one.
-  const root = await tree(t, { 'a.json': BREAKING })
-  const report = await lintEventRegistry({ registry: root, mode: 'backward' })
-  for (const finding of report.findings) {
-    assert.ok(Object.hasOwn(RULE_SEVERITY, finding.ruleId))
-  }
+test('the severity table is frozen and holds only severities the report can count', () => {
+  // Severity comes from this table and nowhere else: every finding is built by
+  // one function, which reads the table and throws on a rule id that is not in
+  // it. Re-reading that lookup back out of the finding, or re-checking that the
+  // rule id is in the table, asserts what the construction already guaranteed
+  // and cannot fail -- what the two loops that used to stand here did.
+  //
+  // What is worth asserting is the table itself. Frozen, so nothing adds an
+  // entry at run time; and carrying only the three severities the summary knows
+  // how to count, because `info` is counted as the remainder, so a fourth value
+  // would be silently totalled as information and never named.
   assert.equal(Object.isFrozen(RULE_SEVERITY), true)
+  for (const [ruleId, severity] of Object.entries(RULE_SEVERITY)) {
+    assert.ok(['error', 'warning', 'info'].includes(severity), `${ruleId} carries the severity ${severity}`)
+  }
 })
 
 test('formatReport renders one line per finding plus a summary', async (t) => {
