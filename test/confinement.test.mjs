@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises'
+import { link, mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import test from 'node:test'
@@ -119,6 +119,31 @@ test('a file reachable under two names inside the root is read under both', asyn
   const report = await lintEventRegistry({ registry: root, mode: 'backward' })
 
   assert.equal(report.summary.checked, 2)
+  assert.deepEqual(
+    report.findings.filter((finding) => finding.ruleId === 'event-name-duplicate').map((finding) => finding.location.file),
+    ['second.json'],
+  )
+})
+
+test('a file reachable under two names through a hard link is read under both', async (t) => {
+  // The same guarantee as above, for the link that has no target. A symbolic
+  // link resolves to the file it points at, so comparing real paths collapses
+  // the two names onto one; a hard link is two real paths for one inode, and
+  // no amount of resolving will say so -- only dev and ino would. Hard links
+  // are ordinary in a build tree (`cp -l`, a package store, a backup), and the
+  // registry holds two declarations of one event name either way, which is the
+  // finding a reviewer needs rather than a file quietly dropped.
+  //
+  // This tool never opens a file for writing, so the other half of the hazard
+  // -- writing through one name and destroying what the other name is -- cannot
+  // arise here; the walk being a pure read is asserted in test/registry.test.mjs.
+  const root = await tree(t, { 'first.json': declaration('orders.order_placed') })
+  await link(join(root, 'first.json'), join(root, 'second.json'))
+
+  const report = await lintEventRegistry({ registry: root, mode: 'backward' })
+
+  assert.equal(report.summary.checked, 2)
+  assert.equal(report.summary.events, 2)
   assert.deepEqual(
     report.findings.filter((finding) => finding.ruleId === 'event-name-duplicate').map((finding) => finding.location.file),
     ['second.json'],
