@@ -176,9 +176,12 @@ conclude:
   behind.
 - **It cannot confirm that an owner is real.** `owner` is a string; `owners` in the configuration is
   an allowlist of strings. Neither is checked against a directory of teams.
-- **It is not a security control.** It refuses paths that resolve outside the registry root and it
-  strips control and bidi characters from everything it prints, because a linter must not become
-  the thing that leaks or forges. Neither makes an untrusted registry safe to act on.
+- **It is not a security control.** It refuses paths that resolve outside the registry root, it
+  strips control and bidi characters from everything it prints, and it reports a JSON parse failure
+  by position rather than by quoting the document -- V8's own message embeds the input, so a file
+  short enough to be only a credential would otherwise be reproduced in full in the report. A
+  linter must not become the thing that leaks or forges. None of that makes an untrusted registry
+  safe to act on.
 - **Two field names that differ only in characters the sanitiser strips collapse to one path** in
   the comparison, so a change between them is not reported.
 

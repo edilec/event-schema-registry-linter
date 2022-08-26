@@ -7,7 +7,7 @@ import test from 'node:test'
 import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
 
-import { CONTROL_CLASSES, formatReport, lintEventRegistry, sanitize } from '../src/index.mjs'
+import { CONTROL_CLASSES, formatReport, lintEventRegistry, parseFailureDetail, sanitize } from '../src/index.mjs'
 
 const execFileAsync = promisify(execFile)
 const projectDirectory = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -215,4 +215,102 @@ test('an excerpt is bounded as well as sanitised', () => {
   assert.equal(sanitize('x'.repeat(400)).endsWith('...'), true)
   assert.equal(sanitize('short'), 'short')
   assert.throws(() => sanitize('x', 0), TypeError)
+})
+
+/**
+ * A parse failure must not quote the document, and that is a separate claim
+ * from sanitising.
+ *
+ * V8 reports a parse failure two ways and one of them embeds the input:
+ * `Unexpected token 'A', "AKIAIOSFODNN7EXAMPLE" is not valid JSON`, or a
+ * ten-character prefix followed by `"..."`. Sanitising does not touch it --
+ * the quoted copy carries no control characters and sits at the front, well
+ * inside the excerpt limit -- so a registry file short enough to be only a
+ * credential was reproduced in full in the report. The canary below is a
+ * published AWS documentation placeholder, not a live key.
+ */
+const CANARY = 'AKIAIOSFODNN7EXAMPLE'
+
+/**
+ * A leak is still a leak when only a prefix is quoted, so every prefix down to
+ * eight characters is checked. Eight is below V8's ten-character truncation.
+ */
+function assertNoCanary(streams) {
+  for (const [name, text] of Object.entries(streams)) {
+    for (let length = CANARY.length; length >= 8; length -= 1) {
+      assert.equal(
+        text.includes(CANARY.slice(0, length)),
+        false,
+        `${name} echoed the first ${length} characters of the unparseable document`,
+      )
+    }
+  }
+}
+
+const runCli = (args) => execFileAsync(process.execPath, [cli, ...args], { cwd: projectDirectory })
+  .then((value) => value, (error) => error)
+
+test('an unparseable event document is reported without echoing its contents', async (t) => {
+  const root = await tree(t, { 'orders/placed.json': CANARY })
+
+  for (const args of [[], ['--json']]) {
+    const result = await runCli(['--registry', root, '--mode', 'backward', ...args])
+    assertNoCanary({ stdout: result.stdout, stderr: result.stderr })
+  }
+
+  const report = await lintEventRegistry({ registry: root, mode: 'backward' })
+  const finding = report.findings.find((entry) => entry.ruleId === 'event-not-json')
+  assert.ok(finding, 'the unparseable file produced no finding, so nothing was exercised')
+  assertNoCanary({ report: JSON.stringify(report), human: formatReport(report) })
+  assert.equal(finding.message, "This file is not valid JSON: unexpected token 'A' in the document")
+})
+
+test('a truncated event document still reports where parsing stopped', async (t) => {
+  const root = await tree(t, { 'orders/placed.json': `{"name": "${CANARY}", ` })
+
+  const report = await lintEventRegistry({ registry: root, mode: 'backward' })
+  const finding = report.findings.find((entry) => entry.ruleId === 'event-not-json')
+  assert.ok(finding, 'the truncated file produced no finding')
+  assertNoCanary({ report: JSON.stringify(report), human: formatReport(report) })
+  assert.match(finding.message, /at position \d+ \(line \d+ column \d+\)$/)
+})
+
+test('an unparseable configuration file is reported without echoing its contents', async (t) => {
+  const root = await tree(t, { 'linter.config.json': CANARY, 'orders/placed.json': json({ name: 'a.b', owner: 'o', versions: [] }) })
+
+  const result = await runCli(['--registry', root, '--config', join(root, 'linter.config.json')])
+
+  assert.equal(result.code, 2)
+  assertNoCanary({ stdout: result.stdout, stderr: result.stderr })
+  assert.match(result.stderr, /Configuration file is not valid JSON/)
+})
+
+test('parseFailureDetail keeps the position and drops the quoted document', () => {
+  const capture = (source) => {
+    try {
+      JSON.parse(source)
+      return null
+    } catch (error) {
+      return error
+    }
+  }
+
+  const quoting = capture(CANARY)
+  assert.equal(quoting.message.includes(CANARY), true, 'V8 no longer quotes the input; this guard needs revisiting')
+  assert.equal(parseFailureDetail(quoting), "unexpected token 'A' in the document")
+
+  // A longer document is quoted as a ten-character prefix, which a check for
+  // the whole string would miss entirely.
+  const truncated = capture('password=hunter2-correct-horse')
+  assert.equal(truncated.message.includes('password=h'), true)
+  assert.equal(parseFailureDetail(truncated), "unexpected token 'p' in the document")
+
+  assert.match(parseFailureDetail(capture('{"a": 1, ')), /at position \d+ \(line \d+ column \d+\)$/)
+  assert.equal(parseFailureDetail(capture('')), 'Unexpected end of JSON input')
+  assert.equal(parseFailureDetail(new Error('unrecognised shape')), 'the document could not be parsed as JSON')
+
+  // The token is one character of untrusted input, so callers sanitise the
+  // result; the detail itself does not pretend to.
+  const hostile = capture(`${String.fromCodePoint(0x9b)}x`)
+  assert.equal(sanitize(parseFailureDetail(hostile)).includes(String.fromCodePoint(0x9b)), false)
 })

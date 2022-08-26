@@ -108,3 +108,31 @@ export function sanitize(value, limit = EXCERPT_LIMIT) {
 export function escapePointerSegment(segment) {
   return sanitize(String(segment).replaceAll('~', '~0').replaceAll('/', '~1'), 120)
 }
+
+/**
+ * Describe a JSON parse failure without repeating the document.
+ *
+ * V8 reports a parse failure two ways, and one of them quotes the input it
+ * choked on: `Unexpected token 'A', "AKIAIOSFODNN7EXAMPLE" is not valid JSON`,
+ * or a ten-character prefix followed by `"..."`. An event document or a
+ * configuration file short enough to be only a credential is therefore
+ * reproduced in full by its own error message, and `sanitize` does not help:
+ * it strips controls and cuts from the end, while the quoted copy sits at the
+ * front and is well inside the limit.
+ *
+ * The position, line and column are the useful half and describe the document
+ * without quoting it. The quoted half never leaves this function. V8 omits the
+ * position from the quoting form, so that case names the offending token alone
+ * rather than inventing a location for it; callers still pass the result
+ * through `sanitize`, because that token is one character of untrusted input
+ * and may itself be a control.
+ */
+export function parseFailureDetail(error) {
+  const message = String(error?.message ?? 'could not be parsed')
+  const position = /at position \d+(?: \(line \d+ column \d+\))?/.exec(message)
+  if (position) return message.slice(0, position.index + position[0].length)
+  const token = /^Unexpected token (.+?), ".*?"(?:\.\.\.)? is not valid JSON$/s.exec(message)
+  if (token) return `unexpected token ${token[1]} in the document`
+  if (/^Unexpected end of JSON input$/.test(message)) return message
+  return 'the document could not be parsed as JSON'
+}

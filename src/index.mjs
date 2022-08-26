@@ -28,12 +28,12 @@ import { resolve } from 'node:path'
 import { CHANGE_KINDS, MODES, compareSchemas, collectFields, describePath, modeRefuses } from './compare.mjs'
 import { validateEventDocument } from './event.mjs'
 import { REGISTRY_ROOT, readRegistry } from './registry.mjs'
-import { byCodeUnit, decodeUtf8, sanitize } from './text.mjs'
+import { byCodeUnit, decodeUtf8, parseFailureDetail, sanitize } from './text.mjs'
 
 export { CHANGE_KINDS, MODES, modeRefuses } from './compare.mjs'
 export { EVENT_KEYS, EVENT_NAME_PATTERN, VERSION_KEYS } from './event.mjs'
 export { isInside } from './registry.mjs'
-export { CONTROL_CLASSES, byCodeUnit, decodeUtf8, escapePointerSegment, sanitize } from './text.mjs'
+export { CONTROL_CLASSES, byCodeUnit, decodeUtf8, escapePointerSegment, parseFailureDetail, sanitize } from './text.mjs'
 
 export const TOOL_ID = 'event-schema-registry-linter'
 export const REPORT_SCHEMA_VERSION = '1'
@@ -258,7 +258,7 @@ export async function loadConfigFile(path) {
   try {
     parsed = JSON.parse(decoded.text)
   } catch (error) {
-    throw new TypeError(`Configuration file is not valid JSON: ${sanitize(error.message, 120)}`)
+    throw new TypeError(`Configuration file is not valid JSON: ${sanitize(parseFailureDetail(error), 120)}`)
   }
   return validateConfig(parsed)
 }

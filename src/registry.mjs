@@ -20,7 +20,7 @@
 import { readFile, readdir, realpath, stat } from 'node:fs/promises'
 import { join, relative, sep } from 'node:path'
 
-import { byCodeUnit, decodeUtf8, sanitize } from './text.mjs'
+import { byCodeUnit, decodeUtf8, parseFailureDetail, sanitize } from './text.mjs'
 
 /** Directories never walked. A dependency tree is not an event registry. */
 export const SKIPPED_DIRECTORIES = Object.freeze(['.git', 'node_modules'])
@@ -177,7 +177,7 @@ export async function readRegistry({ realRoot, limits, clock }) {
     try {
       document = JSON.parse(decoded.text)
     } catch (error) {
-      push('event-not-json', file, `This file is not valid JSON: ${sanitize(error.message, 120)}`)
+      push('event-not-json', file, `This file is not valid JSON: ${sanitize(parseFailureDetail(error), 120)}`)
       return
     }
 

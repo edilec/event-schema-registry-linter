@@ -127,7 +127,7 @@ finding.
 | `event-malformed` | error | no | - | - | A declared value has the wrong JSON shape: a version entry that is not an object, a non-array `producers`, an unknown `compatibility`. |
 | `event-name-duplicate` | error | no | - | - | Two files declare the same event name, so the registry answer depends on which file a reader opened. |
 | `event-name-invalid` | error | no | - | - | The name is missing, too long, or not `domain.event_name` in lower case. |
-| `event-not-json` | error | yes | - | - | The file decoded as UTF-8 but did not parse as JSON, so it was not read. |
+| `event-not-json` | error | yes | - | - | The file decoded as UTF-8 but did not parse as JSON, so it was not read. The failure is named by position, line and column; the document itself is never quoted back. |
 | `event-not-utf8` | error | yes | - | - | The file is not valid UTF-8. It is not decoded leniently and it is not guessed at. |
 | `event-too-large` | error | yes | - | - | The file is larger than the `maxFileBytes` limit and was not read. |
 | `event-unknown-key` | error | no | - | - | An event document or a version entry carries a key this format does not define, most often a typo that would silently drop what it meant to declare. |

@@ -35,6 +35,15 @@ recorded here.
 - Stable output: no clock reading, no locale, no absolute path and no filesystem enumeration order
   reaches stdout, so the same registry always produces byte-identical output.
 
+### Fixed
+
+- An unparseable event document or configuration file is no longer quoted back in the report or on
+  stderr. V8 embeds the input in one of its two parse-error shapes (`Unexpected token 'A',
+  "AKIA..." is not valid JSON`), and sanitising did not remove it: the quoted copy carries no
+  control characters and sits at the front of the message, well inside the excerpt limit. A file
+  short enough to be only a credential was therefore reproduced in full by `event-not-json`.
+  `parseFailureDetail` keeps the position, line and column and drops the quoted document.
+
 ### Notes on the design
 
 - **Modes are named after the direction of the change, not after a reader/writer pairing.** The
