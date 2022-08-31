@@ -43,6 +43,13 @@ recorded here.
   control characters and sits at the front of the message, well inside the excerpt limit. A file
   short enough to be only a credential was therefore reproduced in full by `event-not-json`.
   `parseFailureDetail` keeps the position, line and column and drops the quoted document.
+- That first fix was incomplete: it matched the offset BEFORE recognising the quoting shape, so an
+  event document whose own text reads `at position 1` produced `Unexpected token 'a', "at position
+  1" is not valid JSON` and was sliced at the offset found INSIDE the quoted span, handing the
+  document straight back. The quoting shape is now recognised first, and any detail still carrying
+  a double quote is replaced by the generic sentence. `parseFailureDetail` now reports `at the
+  start of the document` or `inside the document` rather than `in the document`, distinguishing a
+  leading snippet from a window V8 took further in.
 
 ### Notes on the design
 
