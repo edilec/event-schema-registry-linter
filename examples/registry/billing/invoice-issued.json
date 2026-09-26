@@ -1,0 +1,65 @@
+{
+  "name": "billing.invoice_issued",
+  "owner": "team-billing",
+  "description": "Emitted when an invoice document has been issued for an order.",
+  "producers": [
+    "billing-worker"
+  ],
+  "consumers": [
+    "accounting-export",
+    "customer-mail"
+  ],
+  "versions": [
+    {
+      "version": 1,
+      "schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "invoice_id",
+          "order_id",
+          "amount_minor"
+        ],
+        "properties": {
+          "invoice_id": {
+            "type": "string"
+          },
+          "order_id": {
+            "type": "string"
+          },
+          "amount_minor": {
+            "type": "integer",
+            "title": "Amount"
+          }
+        }
+      }
+    },
+    {
+      "version": 2,
+      "description": "Documentation only: the wire contract is unchanged.",
+      "schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "invoice_id",
+          "order_id",
+          "amount_minor"
+        ],
+        "properties": {
+          "invoice_id": {
+            "type": "string",
+            "description": "Invoice identifier as printed on the document."
+          },
+          "order_id": {
+            "type": "string"
+          },
+          "amount_minor": {
+            "type": "integer",
+            "title": "Invoiced amount",
+            "description": "Amount in the minor unit of the invoice currency."
+          }
+        }
+      }
+    }
+  ]
+}

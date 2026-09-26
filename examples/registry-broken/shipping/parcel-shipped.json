@@ -1,0 +1,22 @@
+{
+  "name": "ParcelShipped",
+  "consumer": [
+    "customer-mail"
+  ],
+  "versions": [
+    {
+      "version": 1,
+      "schema": {
+        "type": "object",
+        "requried": [
+          "parcel_id"
+        ],
+        "properties": {
+          "parcel_id": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  ]
+}
